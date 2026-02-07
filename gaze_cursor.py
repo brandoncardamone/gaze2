@@ -6,10 +6,19 @@ Press ESC to exit.
 """
 
 import pygame
-from pygame.locals import KEYDOWN, K_ESCAPE, QUIT
+from pygame.locals import KEYDOWN, K_ESCAPE, QUIT, K_UP, K_DOWN
 
 from gazefollower import GazeFollower
 from screeninfo import get_monitors
+
+# Y-axis correction: Gaze trackers often have a downward bias due to camera position.
+# Positive values move the circle UP (subtract from Y). Adjust as needed for your setup.
+# Typical range: 0-150 pixels. Increase if the circle appears below where you're looking.
+Y_OFFSET_CORRECTION = 50
+
+# Optional: Y scale factor. 1.0 = no change. <1.0 compresses vertical range (reduces error at top/bottom).
+# Try 0.85-0.95 if Y is less accurate at screen edges.
+Y_SCALE = 1.0
 
 # Initialize pygame
 pygame.init()
@@ -38,6 +47,7 @@ gf.calibrate(win=win)
 
 # Start sampling gaze data
 print("Starting gaze tracking. Press ESC to exit.")
+print("UP/DOWN arrows: adjust Y correction in real-time (if circle appears too low)")
 gf.start_sampling()
 pygame.time.wait(100)  # Wait for tracker to cache some samples
 
@@ -45,6 +55,8 @@ pygame.time.wait(100)  # Wait for tracker to cache some samples
 clock = pygame.time.Clock()
 running = True
 gaze_x, gaze_y = screen_width // 2, screen_height // 2  # Default to center
+y_offset = Y_OFFSET_CORRECTION  # Mutable for live adjustment
+y_scale = Y_SCALE
 
 while running:
     # Handle events
@@ -54,12 +66,22 @@ while running:
         elif event.type == KEYDOWN:
             if event.key == K_ESCAPE:
                 running = False
+            elif event.key == K_UP:
+                y_offset += 10  # Move circle up (more correction)
+                print(f"Y offset: {y_offset} (circle moves up)")
+            elif event.key == K_DOWN:
+                y_offset -= 10  # Move circle down (less correction)
+                print(f"Y offset: {y_offset} (circle moves down)")
     
     # Get current gaze position
     gaze_info = gf.get_gaze_info()
     if gaze_info and gaze_info.status:
-        gaze_x = int(gaze_info.filtered_gaze_coordinates[0])
-        gaze_y = int(gaze_info.filtered_gaze_coordinates[1])
+        gaze_x = gaze_info.filtered_gaze_coordinates[0]
+        gaze_y = gaze_info.filtered_gaze_coordinates[1]
+        # Apply Y-axis correction (gaze trackers often have downward bias)
+        gaze_y = (gaze_y - screen_height / 2) * y_scale + screen_height / 2 - y_offset
+        gaze_x = int(gaze_x)
+        gaze_y = int(gaze_y)
         # Clamp to screen bounds
         gaze_x = max(0, min(screen_width, gaze_x))
         gaze_y = max(0, min(screen_height, gaze_y))
@@ -85,6 +107,7 @@ while running:
     clock.tick(60)  # Limit to 60 FPS
 
 # Cleanup
+print(f"Final Y offset: {y_offset} (add to Y_OFFSET_CORRECTION in script for next time)")
 print("Stopping gaze tracking...")
 pygame.time.wait(100)  # Wait to capture ending samples
 gf.stop_sampling()
