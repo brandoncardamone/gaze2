@@ -3,8 +3,11 @@
 Gaze Cursor Display Script
 Displays a red transparent circle at the gaze position in a fullscreen window.
 Press ESC to exit.
+
+Optional: run with --api to also start the Flask API (GET /gaze) in a background thread.
 """
 
+import argparse
 import pygame
 from pygame.locals import KEYDOWN, K_ESCAPE, QUIT, K_UP, K_DOWN
 
@@ -32,6 +35,22 @@ screen_height = monitors[0].height
 win = pygame.display.set_mode((screen_width, screen_height), pygame.FULLSCREEN)
 pygame.display.set_caption("Gaze Cursor")
 pygame.mouse.set_visible(False)  # Hide mouse cursor
+
+# Parse args (e.g. --api to run Flask API in background)
+parser = argparse.ArgumentParser()
+parser.add_argument("--api", action="store_true", help="Start Flask API in background (GET /gaze)")
+parser.add_argument("--api-port", type=int, default=5000, help="Port for API (default: 5000)")
+args = parser.parse_args()
+
+# Start API in background thread if requested
+if args.api:
+    import threading
+    from api import app
+    def run_api():
+        app.run(host="0.0.0.0", port=args.api_port, debug=False, use_reloader=False)
+    api_thread = threading.Thread(target=run_api, daemon=True)
+    api_thread.start()
+    print(f"API running at http://127.0.0.1:{args.api_port}/gaze")
 
 # Initialize GazeFollower
 print("Initializing GazeFollower...")
@@ -85,6 +104,12 @@ while running:
         # Clamp to screen bounds
         gaze_x = max(0, min(screen_width, gaze_x))
         gaze_y = max(0, min(screen_height, gaze_y))
+        # Push to API for /gaze endpoint (if api module is used)
+        try:
+            from api.app import set_gaze
+            set_gaze(float(gaze_x), float(gaze_y), confidence=1.0)
+        except ImportError:
+            pass
     
     # Clear screen with black background
     win.fill((0, 0, 0))

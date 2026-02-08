@@ -22,6 +22,7 @@ A real-time gaze tracking application that displays a red transparent circle at 
 1. Install dependencies:
 ```bash
 pip install -r GazeFollower/requirements.txt
+pip install -r requirements.txt  # Flask for API
 ```
 
 2. Install the GazeFollower package:
@@ -45,9 +46,28 @@ The application will:
 
 Gaze data will be saved to `./data/gaze_cursor_session.csv`
 
+## API
+
+A Flask API exposes gaze coordinates at `GET /gaze`:
+
+```python
+# Reference from anywhere in the codebase
+from api import app
+```
+
+**Endpoints:**
+- `GET /gaze` → `{"x": 960.5, "y": 540.2, "confidence": 0.95}`
+- `GET /health` → `{"status": "ok"}`
+
+**Usage:**
+- **Standalone** (mock data): `python run_api.py` — for development without camera
+- **With live gaze**: `python gaze_cursor.py --api` — runs gaze cursor + API; `/gaze` returns real coordinates
+
 ## Project Structure
 
 - `gaze_cursor.py` - Main application script
+- `api/` - Flask API with `/gaze` endpoint
+- `run_api.py` - Start the API server
 - `GazeFollower/` - Gaze tracking library (based on [GazeFollower](https://github.com/GanchengZhu/GazeFollower))
 
 ## License
